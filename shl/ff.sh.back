@@ -1,0 +1,24 @@
+cfg_load
+sleep 130
+placement FF 0 >> FF
+sleep 1
+placement FF 0 >> FF
+sleep 1
+placement FF 0 >> FF
+sleep 1
+placement FF 0 >> FF
+sleep 1
+placement FF 0 >> FF
+sleep 1
+placement FF 0 >> FF
+sleep 1
+placement FF 0 >> FF
+sleep 1
+placement FF 0 >> FF
+sleep 1
+placement FF 0 >> FF
+sleep 1
+placement FF 0 >> FF
+sleep 1
+placement FF 0 >> FF
+
