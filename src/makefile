@@ -1,33 +1,24 @@
-include $(HOME)/NFV/env.make.linux
+include $(HOME)/NFVModeling/env.make.linux
 
-CFLAGS  = -I$(INC_DIR) -g -lm
-LFLAGS  = -L$(LIB_DIR)
+CFLAGS  = -I$(INC_DIR) -I/usr/include/mysql -g 
+LFLAGS  = -L$(LIB_DIR) -ljson-c -lnfv -lmysqlclient -lpthread
 
 MY_INCLUDE =
 
-SECSRC  = cfg_load.c proc_daemon.c instance.c placement.c workload.c
+SECSRC  =  vnf.c vim.c packetgenerator.c
 
-all:	cfg_load proc_daemon instance placement workload
+all:	vnf vim packetgenerator
 
-cfg_load: cfg_load.o
-	$(CC) -o $@ cfg_load.o $(CFLAGS) $(LFLAGS) -ldavid
+vnf: vnf.o
+	$(CC) -o $@ vnf.o $(CFLAGS) $(LFLAGS)
 	mv $@ $(BIN_DIR)/$@
 		  
-proc_daemon: proc_daemon.o
-	$(CC) -o $@ proc_daemon.o $(CFLAGS) $(LFLAGS) -ldavid
-	mv	$(BIN_DIR)/$@ $(BIN_DIR)/$@.old
+vim: vim.o
+	$(CC) -o $@ vim.o $(CFLAGS) $(LFLAGS)
 	mv $@ $(BIN_DIR)/$@
 
-instance: instance.o
-	$(CC) -o $@ instance.o $(CFLAGS) $(LFLAGS) -ldavid
-	mv $@ $(BIN_DIR)/$@
-
-placement: placement.o
-	$(CC) -o $@ placement.o $(CFLAGS) $(LFLAGS) -ldavid
-	mv $@ $(BIN_DIR)/$@
-
-workload: workload.o
-	$(CC) -o $@ workload.o $(CFLAGS) $(LFLAGS) -ldavid
+packetgenerator: packetgenerator.o
+	$(CC) -o $@ packetgenerator.o $(CFLAGS) $(LFLAGS)
 	mv $@ $(BIN_DIR)/$@
 clear:
 clean:

@@ -1,5 +1,18 @@
 #include "nfv_header.h"
+#include "/usr/include/mysql/mysql.h"
 
+MYSQL MDB_session;
+
+void initialize_MySQL()
+{
+	mysql_init(&MDB_session);
+  if(!mysql_real_connect(&MDB_session, NULL, "root","dwjjang2", "nfv" ,3306, (char *)NULL, 0))
+  {
+  	printf("%s\n",mysql_error(&MDB_session));
+    exit(1);
+  }
+  printf("Connection Succeed.\n") ;
+}
 VNF_TYPE *add_VNF_TYPE(int key, int req_cpu, int req_mem, int req_disk)
 {
   VNF_TYPE *new_vnf_type;
@@ -26,6 +39,7 @@ VNF *deploy_VNF(int key, int throughput, VNF_TYPE *type, SERVER *server, QUEUE *
 {
   VNF *new_vnf;
   new_vnf = (VNF *)malloc(sizeof(VNF));
+  char cmd[256];
 
   if(server != NULL)
     if(check_Resource(type->req_cpu, type->req_mem, type->req_disk, server) < 0) return NULL;
@@ -52,6 +66,8 @@ VNF *deploy_VNF(int key, int throughput, VNF_TYPE *type, SERVER *server, QUEUE *
     vnf_list->tail = new_vnf;
    }
   ++(vnf_list->seq);
+  sprintf(cmd, "~/NFVModeling/bin/%s %d", "VNF", new_vnf->key);
+  system(cmd);
   return new_vnf;
 }
 
@@ -61,9 +77,9 @@ void revoke_VNF(VNF *vnf) //remove linked list & free resource
   vnf = vnf->next;
 }
 
-void log_VNFStatus()
+void log_VNFStatus(int time_stamp)
 {
-  char sqlStr[40960];
+  char sqlStr[8192];
   VNF *vnf = vnf_list->head;
   while(vnf != NULL) 
   {
@@ -72,14 +88,16 @@ void log_VNFStatus()
       " INSERT INTO          "
       "   VNF_LOG            "
       " (                    "
-      "   vnf_key           ,"
-      "   processed_cnt     ,"
-      "   throughput        ,"
-      "   avail             ,"
-      "   server_key        ,"
-      "   vnf_type_key      ,"
-      "   in_queue_key      ,"
-      "   out_queue_key      "
+      "   TIME_STAMP        ,"
+      "   VNF_KEY           ,"
+      "   PROCESSED_CNT     ,"
+      "   THROUGHPUT        ,"
+      "   AVAIL             ,"
+      "   VNF_USAGE         ,"
+      "   SERVER_KEY        ,"
+      "   VNF_TYPE_KEY      ,"
+      "   IN_QUEUE_KEY      ,"
+      "   OUT_QUEUE_KEY      "
       " )                    "
       " VALUES               "
       " (                    "
@@ -88,21 +106,28 @@ void log_VNFStatus()
       "   %d                ,"
       "   %d                ,"
       "   %d                ,"
+      "   %.2f              ,"
+      "   %d                ,"
       "   %d                ,"
       "   %d                ,"
       "   %d                 "
       " )                    "
       " ;                    ",
+        time_stamp           ,
         vnf->key             ,
         vnf->processed_cnt   ,
         vnf->throughput      ,
         vnf->avail           ,
+        vnf->vnf_usage       ,
         vnf->server->key     ,
         vnf->vnf_type->key   ,
         vnf->in_queue->key   ,
         vnf->out_queue->key       
       );
     if(mysql_query(&MDB_session, sqlStr) != 0) //Insert Error
+    {
+      printf("VNF_LOG[%d] INSERT FAIL[%s][%s]\n", vnf->key, mysql_error(&MDB_session), sqlStr);
+    }    
     vnf= vnf->next;
   }
 }
@@ -157,9 +182,9 @@ void free_Resource(SERVER *server)
   server->parent->a_disk += server->t_disk;
 }
 
-void log_ServerStatus()
+void log_ServerStatus(int time_stamp)
 {
-  char sqlStr[40960];
+  char sqlStr[8192];
   SERVER *server = server_list->head;
   while(server != NULL) 
   {
@@ -168,14 +193,19 @@ void log_ServerStatus()
       " INSERT INTO          "
       "   SERVER_LOG         "
       " (                    "
-      "   key               ,"
-      "   t_cpu             ,"
-      "   t_mem             ,"
-      "   t_disk            ,"
-      "   a_cpu             ,"
-      "   a_mem             ,"
-      "   a_disk            ,"
-      "   p_server_key       "
+      "   TIME_STAMP        ,"
+      "   SERVER_KEY        ,"
+      "   T_CPU             ,"
+      "   T_MEM             ,"
+      "   T_DISK            ,"
+      "   A_CPU             ,"
+      "   A_MEM             ,"
+      "   A_DISK            ,"
+      "   CPU_USAGE         ,"
+      "   MEM_USAGE         ,"
+      "   DISK_USAGE        ,"
+      "   P_SERVER_KEY      ,"
+      "   JOB_TYPE           "
       " )                    "
       " VALUES               "
       " (                    "
@@ -186,9 +216,15 @@ void log_ServerStatus()
       "   %d                ,"
       "   %d                ,"
       "   %d                ,"
-      "   %d                 "
+      "   %d                ,"
+      "   %.2f              ,"
+      "   %.2f              ,"
+      "   %.2f              ,"
+      "   %d                ,"
+      "   %c                 "
       " )                    "
       " ;                    ",
+        time_stamp          ,
         server->key         ,
         server->t_cpu       ,
         server->t_mem       ,
@@ -196,9 +232,16 @@ void log_ServerStatus()
         server->a_cpu       ,
         server->a_mem       ,
         server->a_disk      ,
-        server->parent->key       
+        server->cpu_usage   ,
+        server->mem_usage   ,
+        server->disk_usage  ,
+        server->parent->key ,
+        server->job_type
       );
     if(mysql_query(&MDB_session, sqlStr) != 0) //Insert Error
+    {
+      printf("SERVER_LOG[%d] INSERT FAIL[%s][%s]\n", server->key, mysql_error(&MDB_session), sqlStr);
+    }
     server = server->next;
   }
 }
@@ -217,6 +260,8 @@ int alloc_Resource(int rcpu, int rmem, int rdisk, SERVER *pm)
   pm->a_cpu -= rcpu;
   pm->a_mem -= rmem;
   pm->a_disk-= rdisk;
+  
+  calculate_server_usage(pm);
   return 1;
 }
 
@@ -253,9 +298,9 @@ void revoke_QUEUE(QUEUE *queue) //remove linked list & free resource
   queue = queue->next;
 }
 
-void log_QueueStatus()
+void log_QueueStatus(int time_stamp)
 {
-  char sqlStr[40960];
+  char sqlStr[8192];
   QUEUE *queue = queue_list->head;
   while(queue != NULL) 
   {
@@ -264,12 +309,14 @@ void log_QueueStatus()
       " INSERT INTO          "
       "   QUEUE_LOG         "
       " (                    "
-      "   key               ,"
-      "   size              ,"
-      "   avail             ,"
-      "   processed_cnt     ,"
-      "   wait_cnt          ,"
-      "   server_key         "
+      "   TIME_STAMP        ,"
+      "   QUEUE_KEY         ,"
+      "   SIZE              ,"
+      "   AVAIL             ,"
+      "   QUEUE_USAGE       ,"
+      "   PROCESSED_CNT     ," //already processed packets
+      "   WAIT_CNT          ," //waiting packets to be processed
+      "   SERVER_KEY         "
       " )                    "
       " VALUES               "
       " (                    "
@@ -277,36 +324,43 @@ void log_QueueStatus()
       "   %d                ,"
       "   %d                ,"
       "   %d                ,"
+      "   %.2f              ,"
+      "   %d                ,"
       "   %d                ,"
       "   %d                 "
       " )                    "
       " ;                    ",
+        time_stamp              ,
         queue->key              ,
         queue->size             ,
         queue->avail            ,
+        queue->queue_usage      ,
         queue->processed_cnt    ,
         queue->packet_list->cnt ,
         queue->server->key       
       );
     if(mysql_query(&MDB_session, sqlStr) != 0) //Insert Error
-
+    {
+      printf("QUEUE_LOG[%d] INSERT FAIL[%s][%s]\n", queue->key, mysql_error(&MDB_session), sqlStr);
+    }
+    
     queue = queue->next;
   }
 }
 
 void log_Packet(PACKET *packet, int queue_key)
 {
-  char sqlStr[40960];
+  char sqlStr[8192];
   memset(sqlStr, 0x20, sizeof(sqlStr));
   sprintf(sqlStr, 
     " INSERT INTO          "
     "   PACKET_LOG         "
     " (                    "
-    "   queue_key         ,"
-    "   packet_seq        ,"
-    "   wait_time         ,"
-    "   process_time      ,"
-    "   service_time       "
+    "   QUEUE_KEY         ,"
+    "   PACKET_SEQ        ,"
+    "   WAIT_TIME         ,"
+    "   PROCESS_TIME      ,"
+    "   SERVICE_TIME       "
     " )                    "
     " VALUES               "
     " (                    "
@@ -324,24 +378,30 @@ void log_Packet(PACKET *packet, int queue_key)
       packet->service_time       
   );
   if(mysql_query(&MDB_session, sqlStr) != 0) //Insert Error
-  	;
+  {
+    printf("PACKET_LOG[%d] INSERT FAIL[%s][%s]\n", packet->seq, mysql_error(&MDB_session), sqlStr);
+  }    
 }
 
 //After packet pop
 //queue->packet_list->head = queue->packet_list->head->next;
 
-PACKET *getPacket(QUEUE *in_queue)
+PACKET *getPacket(QUEUE *in_queue, VNF *vnf)
 {
-  return popQueue(in_queue);
+  return popQueue(in_queue, vnf);
 }
 
-PACKET *popQueue(QUEUE *queue)
+PACKET *popQueue(QUEUE *queue, VNF *vnf)
 {
   PACKET *current_packet;
   current_packet = queue->packet_list->head;
 
-  queue->avail++;
+  //vnf doesn't have space
+  if(vnf->avail - strlen(current_packet->data) < 0) return NULL;
+  
+  queue->avail += strlen(current_packet->data);
   queue->processed_cnt++;
+  calculate_queue_usage(queue);
 
   //Queue out -> wait time
   if(current_packet->tmp_in_time > 0)
@@ -354,6 +414,10 @@ PACKET *popQueue(QUEUE *queue)
     current_packet->tmp_out_time = getTime();
 
   --(queue->packet_list->cnt);
+
+  vnf->avail -= strlen(current_packet->data);
+  calculate_vnf_usage(vnf);
+  
   log_Packet(current_packet, queue->key);
   return current_packet;
 }
@@ -363,17 +427,18 @@ int calculateTime(int in_time, int out_time)
   return out_time - in_time;
 }
 
-int putPacket(PACKET *packet, QUEUE *out_queue)
+int putPacket(PACKET *packet, QUEUE *out_queue, VNF *vnf)
 {
-  pushQueue(out_queue, packet);
+  pushQueue(out_queue, packet, vnf);
 }
 
-int pushQueue(QUEUE *queue, PACKET *packet)
+int pushQueue(QUEUE *queue, PACKET *packet, VNF *vnf)
 {
-  if(queue->avail <= 0) return -1;
+  if((queue->avail - strlen(packet->data)) < 0) return -1;
 
-  queue->avail--;
-
+  queue->avail -= strlen(packet->data);
+  calculate_queue_usage(queue);
+  
   //queue out -> process time
   if(packet->tmp_out_time > 0)
   {
@@ -385,6 +450,10 @@ int pushQueue(QUEUE *queue, PACKET *packet)
     packet->tmp_in_time = getTime();
 
   ++(queue->packet_list->cnt);
+
+  vnf->avail += strlen(packet->data);
+  calculate_vnf_usage(vnf);
+  
   queue->packet_list->tail = packet;
   queue->packet_list->tail->next = packet;
   log_Packet(packet, queue->key);
@@ -438,4 +507,21 @@ int getTime()
   struct timeval tv;
   gettimeofday(&tv, NULL);
   return tv.tv_sec * MICROSECOND + tv.tv_usec;
+}
+
+void calculate_server_usage(SERVER *server)
+{
+  server->cpu_usage = (float)((server->t_cpu-server->a_cpu)/server->t_cpu);
+  server->mem_usage = (float)((server->t_mem-server->a_mem)/server->a_mem);
+  server->disk_usage = (float)((server->t_disk-server->a_disk)/server->a_disk);
+}
+
+void calculate_queue_usage(QUEUE *queue)
+{
+  queue->queue_usage = (float)((queue->size-queue->avail)/queue->size);
+}
+
+void calculate_vnf_usage(VNF *vnf)
+{
+  vnf->vnf_usage = (float)((vnf->throughput-vnf->avail)/vnf->throughput);
 }

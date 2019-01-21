@@ -1,6 +1,3 @@
-#ifndef _COMMON_H_
-#define _COMMON_H_
-
 #include	<stdio.h>
 
 #include	<memory.h>
@@ -31,15 +28,43 @@
 #include	<pthread.h>
 #include 	<time.h>
 
-#include "vnf.h"
-#include "queue.h"
-#include "server.h"
-#include "packet.h"
-
 /*------------------------------------------------------------------------
 	Define
 ------------------------------------------------------------------------*/
 #define MICROSECOND 1000000
+
+#define TM_YEAR_BASE	1900
+#define	SYS_NO			errno
+#define	SYS_STR			strerror(errno)
+
+#define	FAIL			-1
+#define	SUCCESS			1
+#define	TCP_TIME_OUT	30
+#define	POLL_TIME_OUT	20 * 1000
+#define	TIME_OUT_FLAG	0
+
+#define	TCP_SIZE_LEN	1024
+#define	BUF_SIZE_LEN	4096
+
+#define	MAX_CONNECT_TRY	3
+#define	POLL_SEND		"POLLSEND"
+#define	POLL_RECV		"POLLRECV"
+#define	BIN_PATH		"/home/david/bin"
+
+#define DEF_VM			"VM"
+#define DEF_VNIC		"vNIC"
+#define DEF_PNIC		"pNIC"
+#define DEF_VSWITCH		"vSwitch"
+#define DEF_PSWITCH		"pSwitch"
+
+#define PTP_TCP_SVR		"TCP_SERVER"
+#define PTP_TCP_CLT		"TCP_CLIENT"
+
+#define PTP_UDP_SVR		"UDP_SERVER"
+#define PTP_UDP_CLT		"UDP_CLIENT"
+
+
+#define	Q_KEY			30000
 
 /*------------------------------------------------------------------------
 	Function Prototypes

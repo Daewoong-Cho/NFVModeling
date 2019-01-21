@@ -4,11 +4,10 @@
 #include <sys/time.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include "/usr/include/mysql/mysql.h"
 
 #define MICROSECOND 1000000
 
-MYSQL MDB_session;
+//MYSQL MDB_session;
 
 typedef struct _server_
 {
@@ -21,6 +20,10 @@ typedef struct _server_
   int a_mem; //memory availability
   int a_disk; //disk availability
 
+  float cpu_usage; //used cpu(%)
+  float mem_usage; //used memory(%)
+  float disk_usage; //used disk(%)
+  
   struct _server_ *parent; //if null, physical machine
   struct _server_ *next;
 
@@ -36,11 +39,11 @@ typedef struct _server_list_
 
 SERVER_LIST *server_list;
 
-
+#define MAX_PACKET_SIZE 10000
 typedef struct _packet_
 {
   int seq;
-  char data[1024];
+  char data[MAX_PACKET_SIZE];
 
   int sens_cpu;
   int sens_mem;
@@ -73,6 +76,9 @@ typedef struct _queue_
   int size;
   int avail; 
   int processed_cnt;
+  
+  float queue_usage;
+    
   SERVER *server;
   PACKET_LIST *packet_list;
   struct _queue_ *next;
@@ -111,6 +117,9 @@ typedef struct _vnf_
   int processed_cnt;
   int throughput;
   int avail;
+  
+  float vnf_usage; //(throughput-avail)/throughput (%)
+  
   struct _vnf_type_ *vnf_type;
   SERVER *server;
   
@@ -146,14 +155,18 @@ QUEUE *deploy_QUEUE(int key, int size, SERVER *server);
 void revoke_QUEUE(QUEUE *queue);
 void log_QueueStatus();
 
-PACKET *getPacket(QUEUE *in_queue);
-PACKET *popQueue(QUEUE *queue);
+PACKET *getPacket(QUEUE *in_queue, VNF *vnf);
+PACKET *popQueue(QUEUE *queue, VNF *vnf);
 int calculateTime(int in_time, int out_time);
-int putPacket(PACKET *packet, QUEUE *out_queue);
-int pushQueue(QUEUE *queue, PACKET *packet);
+int putPacket(PACKET *packet, QUEUE *out_queue, VNF *vnf);
+int pushQueue(QUEUE *queue, PACKET *packet, VNF *vnf);
 
 SERVER *getServer(int server_key);
 QUEUE *getQueue(int queue_key);
 VNF_TYPE *getVNFType(int vnf_type_key);
 
 int getTime();
+
+void calculate_server_usage(SERVER *server);
+void calculate_queue_usage(QUEUE *queue);
+void calculate_vnf_usage(VNF *vnf);
