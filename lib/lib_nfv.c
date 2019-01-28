@@ -509,6 +509,13 @@ int getTime()
   return tv.tv_sec * MICROSECOND + tv.tv_usec;
 }
 
+int getDate()
+{
+  int Idate, Itime;
+  _GetDTime(&Idate, &Itime, 100);
+  return Idate;
+}
+
 void calculate_server_usage(SERVER *server)
 {
   server->cpu_usage = (float)((server->t_cpu-server->a_cpu)/server->t_cpu);
