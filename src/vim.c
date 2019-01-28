@@ -22,9 +22,11 @@ int main(int argc, char *argv[])
   char buff[81920];
   int time_stamp = 0;
   int fd = -1;
+  char filepath[8192] = {0,};
 
-	fd = open("/home/david/NFVModeling/cfg/env.json",O_WRONLY|O_APPEND|O_CREAT,0666);
-	read(fd, buff, sizeof(buff));  
+	sprintf(filepath, "%s/cfg/env.json", getenv("HOME"));
+  fd = open(filepath, "a");
+  read(fd, buff, sizeof(buff));  
 	 
   memset(buff, 0x00, sizeof(buff));
   
