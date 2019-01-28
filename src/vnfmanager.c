@@ -20,7 +20,7 @@ int main(int argc, char *argv[])
    if(vnf->vnf_usage < THRESHOLD && vnf->in_queue->queue_usage > THRESHOLD)
    {
      VNF *new_vnf = (VNF *)malloc(sizeof(VM *));
-     n
+     new_vnf->
      //change setting
    }
   }
