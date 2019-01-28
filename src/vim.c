@@ -4,6 +4,8 @@ VIM: deploy_server/queue, log_status
 #include "nfv_header.h"
 #include <json-c/json.h>
 
+char LOG_FILE[256];
+
 int main(int argc, char *argv[])
 {
   SERVER *new_server = (SERVER *)malloc(sizeof(SERVER));
@@ -22,10 +24,17 @@ int main(int argc, char *argv[])
   char buff[81920];
   int time_stamp = 0;
   int fd = -1;
-  char filepath[8192] = {0,};
+  char ENV_PATH[256] = {0,};
 
-	sprintf(filepath, "%s/cfg/env.json", getenv("HOME"));
-  fd = open(filepath, "a");
+  sprintf(LOG_FILE, "%s/log/vim.log.%d", getenv("HOME"), getDate());
+  
+  sprintf(ENV_PATH, "%s/cfg/env.json", getenv("HOME"));
+  fd = open(ENV_PATH, "a");
+  if(fd < 0) 
+  {
+     _DispLog(LOG_FILE, "[EROR] File Open Error{%s}", ENV_PATH);
+    return -1;
+  }
   read(fd, buff, sizeof(buff));  
 	 
   memset(buff, 0x00, sizeof(buff));
